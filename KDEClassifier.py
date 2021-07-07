@@ -3,11 +3,16 @@ from sklearn.neighbors import KernelDensity
 import numpy as np
 
 class KDEClassifier(BaseEstimator, ClassifierMixin):
-    """
-    bandwidth: 用于KDE模型的带宽
-    kernel: 用于KDE模型的核函数名称
-    """
     def __init__(self, bandwidth=1.0, kernel='gaussian'):
+        """Bayesian generative classification based on KDE
+        
+        Parameters
+        ----------
+        bandwidth : float
+            the kernel bandwidth within each class
+        kernel : str
+            the kernel name, passed to KernelDensity
+        """
         self.bandwidth = bandwidth
         self.kernel = kernel
         self.classes_ = None
@@ -16,20 +21,26 @@ class KDEClassifier(BaseEstimator, ClassifierMixin):
 
     def fit(self, X, y):
         self.classes_ = np.sort(np.unique(y))
-        # 抓取標籤類別
+        # Get tag category
+        # Output example: [0 1 2]
         training_sets = [X[y == yi] for yi in self.classes_]
-        # 訓練kde，計算機率密度
+        # Divide the data into N lists according to categories
+        # training_sets shape: [self.classes_ size, x]
         self.models_ = [KernelDensity(bandwidth=self.bandwidth, kernel=self.kernel).fit(Xi) for Xi in training_sets]
-        self.logpriors_ = [np.log(Xi.shape[0] / X.shape[0]) for Xi in training_sets]  # 計算先驗概率
+        # Use "sklearn KernelDensity" to calculate kernel density
+        self.logpriors_ = [np.log(Xi.shape[0] / X.shape[0]) for Xi in training_sets]
+        # Calculate the prior probability of each class based on the sample size
         return self
 
     def predict_proba(self, X):
-        logprobs = np.array([
-            m.score_samples(X) for m in self.models_  # 計算輸入樣本作為每一個類在其所在位置出現的概率
-        ]).T
-        result = np.exp(logprobs + self.logpriors_)  # 概率的對數相加，等於概率相乘，乘每一個類的先驗概率
+        logprobs = np.array([m.score_samples(X) for m in self.models_]).T
+        # Calculate the probability of the input sample as each class appearing in its location
+        result = np.exp(logprobs + self.logpriors_)
+        # The logarithmic addition of the probabilities is equal to the multiplication of the probabilities.
+        # Multiply the prior probability of each class.
         np.seterr(invalid='ignore')
         return result / result.sum(axis=1, keepdims=True)
 
     def predict(self, X):
-        return self.classes_[np.argmax(self.predict_proba(X), axis=1)]  # 找概率最大
+        return self.classes_[np.argmax(self.predict_proba(X), axis=1)]
+        # Find the largestest probability

@@ -5,7 +5,7 @@ from KDEClassifier import KDEClassifier
 import numpy as np
 
 def model(X_train, y_train, X_test, y_test):
-    bandwidths = 10 ** np.linspace(0, 2, 100)
+    bandwidths = 10 ** np.linspace(0, 5, 5)
     grid = GridSearchCV(KDEClassifier(), {'bandwidth': bandwidths})
 
     start = time.time()
